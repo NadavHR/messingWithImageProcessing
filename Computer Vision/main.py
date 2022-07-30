@@ -1,5 +1,3 @@
-import struct
-from cv2 import medianBlur
 import gbvision as gbv
 import numpy as np
 import settings as settings
@@ -10,7 +8,6 @@ default_vals = settings.DEFAULT_VALS
 default_range = settings.DEFAULT_RANGE
 TARGET = settings.TARGET
 sock = socket.socket
-
 
 def main():
     # camera
@@ -48,9 +45,6 @@ def main():
     range_val = default_range[2]
 
 
-
-
-
     # previous errors and integrals
     last_exposure_e = 0
     exposure_integral = 0
@@ -58,9 +52,6 @@ def main():
     hue_last_e = 0
     sat_integral = 0
     sat_last_e = 0
-
-
-
 
 
     while True:
@@ -129,8 +120,7 @@ def main():
             # prints locals
             print("distance:" + str(TARGET.distance_by_params(cam, root)))
             print("location:" + str(locals))
-            print(
-                "angle:" + str(np.arcsin(locals[0] / locals[2]) * 180 / np.pi))
+            print("angle:" + str(np.arcsin(locals[0] / locals[2]) * 180 / np.pi))
 
 
 
