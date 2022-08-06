@@ -5,7 +5,7 @@ import settings as settings
 import socket
 
 
-threshold = settings.TARGET1_THRESHOLD + gbv.MedianBlur(3) + gbv.Dilate(12, 9
+threshold = settings.DEFAULT_TARGET_THRESHOLD + gbv.MedianBlur(3) + gbv.Dilate(12, 9
         )  + gbv.Erode(5, 9) + gbv.DistanceTransformThreshold(0.3)
 
 pipe = threshold + gbv.find_contours + gbv.FilterContours(
@@ -26,7 +26,7 @@ def main():
     while win.show_frame(frame):
         ok, frame = cam.read()
         thr.show_frame(threshold(frame))
-        raw.show_frame(settings.TARGET1_THRESHOLD(frame))
+        raw.show_frame(settings.DEFAULT_TARGET_THRESHOLD(frame))
         cnts = pipe(frame)
         frame = gbv.draw_rotated_rects(frame, cnts, (255, 0, 0), thickness=5)
         if len(cnts) > 0:
@@ -39,7 +39,7 @@ def main():
             
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                sock.sendto(struct.pack('ddd', locals[0], locals[1], locals[2]),
+                sock.sendto(struct.pack('fff', locals[0], locals[1], locals[2]),
                     ("255.255.255.255", 5162))
                 
                 

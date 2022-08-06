@@ -16,9 +16,9 @@ class Main{
 
             while (true) {
                 socket.receive(packet);
-                double[] locals = new double[]{(ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getDouble()),
-                    (ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getDouble(8)),
-                    (ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getDouble(16))};
+                float[] locals = new float[]{(ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getFloat()),
+                    (ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getFloat(4)),
+                    (ByteBuffer.wrap(packet.getData()).order(ByteOrder.LITTLE_ENDIAN).getFloat(8))};
                     System.out.println(String.format("x: %s, y: %s, z: %s", locals[0], locals[1], locals[2]));
             }
         }

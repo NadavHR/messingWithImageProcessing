@@ -1,3 +1,4 @@
+import struct
 import gbvision as gbv
 import numpy as np
 import settings as settings
@@ -95,8 +96,8 @@ def main():
 
 
         # threshold pipeline
-        threshold = final_thr + gbv.MedianBlur(5) + gbv.Dilate(15, 3
-                                                               ) + gbv.Erode(10, 2) + gbv.DistanceTransformThreshold(0.2)
+        threshold = final_thr + gbv.MedianBlur(5) + gbv.Dilate(7, 2
+                                                               ) + gbv.Erode(7, 2) + gbv.DistanceTransformThreshold(0.2)
         # rects pipeline
         pipe = threshold + gbv.find_contours + gbv.FilterContours(
             100) + gbv.contours_to_rotated_rects_sorted + gbv.filter_inner_rotated_rects
@@ -152,10 +153,10 @@ def main():
 
 
             # NOT RELEVENT: broadcats locally the locals found, only usefull for robotics
-            # with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
-            #     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            #     sock.sendto(struct.pack('ddd', locals[0], locals[1], locals[2]),
-            #                 ("255.255.255.255", 5162))
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.sendto(struct.pack('fff', locals[0], locals[1], locals[2]),
+                            ("255.255.255.255", 5162))
         else:
             # in case no object was found, the thr will start aiming towards the defult thr
             cur_thr = settings.DEFAULT_TARGET_THRESHOLD

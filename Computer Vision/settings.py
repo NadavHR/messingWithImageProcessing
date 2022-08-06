@@ -3,7 +3,7 @@ import gbvision as gbv
 # settings file, here you have the settings, stuff that change based on context
 
 CAMERA_PORT = 1
-EXPOSURE = -5
+EXPOSURE = -9
 
 with open('thr.txt') as f:
   DEFAULT_VALS = [int(f.readline()),

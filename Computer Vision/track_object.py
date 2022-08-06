@@ -1,6 +1,9 @@
-from cmath import rect
 from copy import copy
+import math
+import socket
+import struct
 import gbvision as gbv
+import cv2 
 import numpy as np
 import settings as settings
 
@@ -8,24 +11,29 @@ from main import main
 
 class track_object:
     def __init__(self,  cam: gbv.usb_camera,
-                hue, sat, val, vals, range, target: gbv.GameObject):   
-        self.__derivative = [0, 0, 0]# motion derivative
+                hue, sat, val, pid_vals, range, target: gbv.GameObject, angle_offset = (0, 0, 0)):   
+        self.__motion_derivative = [0, 0, 0] # motion derivative
         self.__locals = [0, 0, 0]
-        self.__cam = cam
-        self.__distance_derivative = 0
+        self.__angle = [0, 0, 0]
+        self.angle_offset = angle_offset
+        self.__angle_derivative = [0, 0, 0]
+        self.cam = cam
+        self.__distance_derivative = 0 
         self.distance = 0
-        self.__target_thr = gbv.ColorThreshold([[vals[0] - range[0], 
-                                           vals[0] + range[0]], 
-                                          [vals[1] - range[1],
-                                           vals[1] + range[1]],
-                                          [vals[2] - range[2],
-                                           vals[2] + range[2]]],
+        self.__rects = [] # the rects
+        self.__bbox = None # the bounding box from which we update the thr
+        self.target_thr = gbv.ColorThreshold([[pid_vals[0] - range[0], 
+                                           pid_vals[0] + range[0]], 
+                                          [pid_vals[1] - range[1],
+                                           pid_vals[1] + range[1]],
+                                          [pid_vals[2] - range[2],
+                                           pid_vals[2] + range[2]]],
                                          'HSV')
-        self.__thr = copy(self.__target_thr)
-        self.__final_thr = copy(self.__target_thr)
-        self.__vals = vals
-        self.__range = range.copy()
-        ok, self.__raw_frame = self.__cam.read()
+        self.__thr = copy(self.target_thr)
+        self.__final_thr = copy(self.target_thr)
+        self.__vals = pid_vals
+        self.range = range.copy()
+        ok, self.__frame = self.cam.read()
         self.__target = target
         # pid values
         self.__hue_pid = hue.copy()
@@ -72,94 +80,111 @@ class track_object:
                 ) + (self.__val_integral * self.__val_pid[1]
                      ) - (val_d * self.__val_pid[2])
         
-        self.__final_thr = gbv.ColorThreshold([[hue - self.__range[0], hue + self.__range[0]],
-                                        [sat - self.__range[1], sat + self.__range[1]],
-                                        [val - self.__range[2], val + self.__range[2]]],
-                                       'HSV') or self.__thr or self.__target_thr
+        self.__final_thr = gbv.ColorThreshold([[hue - self.range[0], hue + self.range[0]],
+                                        [sat - self.range[1], sat + self.range[1]],
+                                        [val - self.range[2], val + self.range[2]]],
+                                       'HSV') or self.__thr or self.target_thr
         
-        rects = self.rect()
+        rects = self.__rect()
         
         if len(rects) > 0:
             # find locals
             root = gbv.BaseRotatedRect.shape_root_area(rects[0])
             center = gbv.BaseRotatedRect.shape_center(rects[0])
-            locals = self.__target.location_by_params(self.__cam, root, center)
+            locals = self.__target.location_by_params(self.cam, root, center)
             for i in range(3):
-                self.__derivative[i] = self.__locals[i] - locals[i]
+                self.__motion_derivative[i] = self.__locals[i] - locals[i]
             self.__locals = locals
             if ok:
-                self.bbox()
-            distance = self.__target.distance_by_params(self.__cam, root)
+                self.update_thr()
+            distance = self.__target.distance_by_params(self.cam, root)
             self.__distance_derivative = self.distance - distance
             self.distance = distance
         else:
-            self.__thr = self.__target_thr
+            self.__thr = self.target_thr
             self.distance += self.__distance_derivative
             for i in range(3):
-                self.__locals[i] += self.__derivative[i]
+                self.__locals[i] += self.__motion_derivative[i]
 
-    def __threshold(self):
-        return self.__final_thr + gbv.MedianBlur(5) + gbv.Dilate(15, 3
-                                                               ) + gbv.Erode(10, 2) + gbv.DistanceTransformThreshold(0.2)
+    def get_threshold_pipe(self):
+        return self.__final_thr + gbv.MedianBlur(3) + gbv.Dilate(5, 2
+                                                               ) + gbv.Erode(5, 2) + gbv.DistanceTransformThreshold(0.2)
     
-    def get__bbox(self):
+    def __update_bbox(self):
         try:
-            bbox_pipe = self.__threshold() + gbv.DistanceTransformThreshold(0.99
+            bbox_pipe = self.get_threshold_pipe() + gbv.DistanceTransformThreshold(0.99
                                                                        ) + gbv.find_contours + gbv.contours_to_rects_sorted + gbv.filter_inner_rects
             # the box on the frame from which we choose the next thr
-            return bbox_pipe(self.__raw_frame)[0]
+            self.__bbox = bbox_pipe(self.__frame)[0]
         except:
             pass
     
-    def bbox(self):
+    def get_bbox(self):
+        return self.__bbox
+    
+    def get_angle(self):
+        angle = self.__angle
         try:
-            bbox = self.get__bbox
+            bbox = self.__bbox
+            rect = self.__rects[0]
+            angle[0] = rect[2]
+            bbox_center = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+            rect_center = rect[0]
+            dis = (rect_center[0] - bbox_center[0], rect_center[1] - bbox_center[1])
+            angle[1] = math.atan(dis[0] / rect[1][0]) * 57.2957795
+            angle[2] = math.atan(dis[1] / rect[1][1]) * 57.2957795
+            # updates angle derivative
+            self.__angle_derivative = (-self.__angle[0] + angle[0],
+                                       -self.__angle[1] + angle[1],
+                                       -self.__angle[2] + angle[2])
+        except:
+            angle = [self.__angle[0] + self.__angle_derivative[0],
+                     self.__angle[1] + self.__angle_derivative[1],
+                     self.__angle[2] + self.__angle_derivative[2]]
+        self.__angle = angle
+        return angle
+
+    def update_thr(self):
+        try:
+            self.__update_bbox()
             # makes sure we only choose the next thr if the frame exists
-            thr = gbv.median_threshold(self.__raw_frame, [0, 0, 0], bbox, 'HSV')
+            thr = gbv.median_threshold(self.__frame, [0, 0, 0], self.__bbox, 'HSV')
             self.__thr = thr
         except:
             pass
-        
-    def thr(self):
-        return self.__threshold()(self.__raw_frame)
 
-    def rect(self):
+    def __rect(self):
         # rects pipeline
-        pipe = self.__threshold() + gbv.find_contours + gbv.FilterContours(
+        pipe = self.get_threshold_pipe() + gbv.find_contours + gbv.FilterContours(
             100) + gbv.contours_to_rotated_rects_sorted + gbv.filter_inner_rotated_rects
-        return pipe(self.__raw_frame)
+        self.__rects = pipe(self.__frame)
+        return self.__rects
     
+    def get_rects(self):
+        return self.__rects
     
     def __calc_pid_error(self, item):
         obj_error = (self.__vals[item] - self.__vals[item])
         return obj_error
     
-    def set_thr(self, thr: gbv.ColorThreshold):
-        self.__target_thr = copy(thr)
-    
-    def set_cam(self, cam: gbv.usb_camera):
-        self.__cam = cam
-    
     def get_locals(self):
         return self.__locals
     
-    def get_derivative(self):
-        return self.__derivative
-    
-    def get_thr(self):
-        return copy(self.__target_thr)
-    
-    def get_cam(self):
-        return self.__cam
+    def get_motion_derivative(self):
+        return self.__motion_derivative
     
     def get_raw_frame(self):
-        return self.__raw_frame
+        return self.__frame
     
     def update_frame(self):
-        ok, self.__raw_frame = self.__cam.read()
+        ok, self.__frame = self.cam.read()
         return ok
+    
     def get_final_thr(self):
         return copy(self.__final_thr)
+    
+    def get_angle_derivative(self):
+        return self.__angle_derivative
         
 
 
@@ -172,7 +197,7 @@ class track_object:
 def main():
     cam = gbv.USBCamera(settings.CAMERA_PORT, gbv.LIFECAM_3000)
     cam.set_exposure(settings.EXPOSURE)
-    obj = track_object(cam=cam, vals=settings.DEFAULT_VALS, hue=[settings.HUE_KP, settings.HUE_KI,
+    obj = track_object(cam=cam, pid_vals=settings.DEFAULT_VALS, hue=[settings.HUE_KP, settings.HUE_KI,
                             settings.HUE_KD], sat=[settings.SAT_KP, settings.SAT_KI,
                             settings.SAT_KD], val=[settings.VAL_KP, settings.VAL_KI, settings.VAL_KD],
                             range=settings.DEFAULT_RANGE, target=settings.TARGET)
@@ -186,19 +211,26 @@ def main():
             obj.track_cycle()
             # draws the blue squares showing the objects detected
             frame = gbv.draw_rotated_rects(
-                obj.get_raw_frame(), obj.rect(), (255, 0, 0), thickness=5)
+                obj.get_raw_frame(), obj.get_rects(), (255, 0, 0), thickness=5)
             # shows the red square shoqing the place from which we choose our next thr
+            raw.show_frame(obj.get_final_thr()(frame))
             try:
-                frame2 = gbv.draw_rects(frame, [obj.get__bbox()], (0, 0, 255), thickness=5)
+                frame2 = gbv.draw_rects(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
                 frame = frame2
             except:
                 pass
-                
-            thr.show_frame(obj.thr())
-            raw.show_frame(obj.get_final_thr()(frame))
+            thr.show_frame(obj.get_threshold_pipe()(obj.get_raw_frame()))
             win.show_frame(frame)
-            print(obj.get_locals())
+            locals = obj.get_locals()
+            angle = obj.get_angle()
+            print(locals)
+            print(angle)
             print(obj.distance)
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                sock.sendto(struct.pack('ffffff', locals[0], locals[1], locals[2], 
+                                        angle[0], angle[1], angle[2]),
+                            ("255.255.255.255", 5162))
             
 
 if __name__ == '__main__':

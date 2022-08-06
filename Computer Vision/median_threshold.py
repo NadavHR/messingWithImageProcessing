@@ -40,8 +40,7 @@ def main():
             break
         if not after_proc.show_frame(frame):
             break
-
-    original.close()
+    
     after_proc.close()
 
 
