@@ -63,7 +63,6 @@ class track_object:
         hue_d = self.__hue_last_e - hue_error
         sat_d = self.__sat_last_e - sat_error
         val_d = self.__val_last_e - val_error
-        
         # hue calc
         hue = self.__vals[0]
         hue += (hue_error * self.__hue_pid[0]
@@ -95,6 +94,9 @@ class track_object:
             for i in range(3):
                 self.__motion_derivative[i] = self.__locals[i] - locals[i]
             self.__locals = locals
+            self.__hue_last_e = hue_error
+            self.__sat_last_e = sat_error
+            self.__val_last_e = val_error
             if ok:
                 self.update_thr()
             distance = self.__target.distance_by_params(self.cam, root)
@@ -108,7 +110,7 @@ class track_object:
 
     def get_threshold_pipe(self):
         return self.__final_thr + gbv.MedianBlur(3) + gbv.Dilate(5, 2
-                                                               ) + gbv.Erode(5, 2) + gbv.DistanceTransformThreshold(0.2)
+                                                               ) + gbv.Erode(5, 2) + gbv.DistanceTransformThreshold(0.1)
     
     def __update_bbox(self):
         try:
@@ -152,7 +154,8 @@ class track_object:
             self.__thr = thr
         except:
             pass
-
+        
+    
     def __rect(self):
         # rects pipeline
         pipe = self.get_threshold_pipe() + gbv.find_contours + gbv.FilterContours(
@@ -164,7 +167,7 @@ class track_object:
         return self.__rects
     
     def __calc_pid_error(self, item):
-        obj_error = (self.__vals[item] - self.__vals[item])
+        obj_error = (self.__vals[item] - self.__thr.params[item][0])
         return obj_error
     
     def get_locals(self):
@@ -209,11 +212,11 @@ def main():
     raw = gbv.FeedWindow("raw")
     while True:
             obj.track_cycle()
+            # shows the red square shoqing the place from which we choose our next thr
+            raw.show_frame(obj.get_final_thr()(obj.get_raw_frame()))
             # draws the blue squares showing the objects detected
             frame = gbv.draw_rotated_rects(
                 obj.get_raw_frame(), obj.get_rects(), (255, 0, 0), thickness=5)
-            # shows the red square shoqing the place from which we choose our next thr
-            raw.show_frame(obj.get_final_thr()(frame))
             try:
                 frame2 = gbv.draw_rects(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
                 frame = frame2
@@ -230,7 +233,7 @@ def main():
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 sock.sendto(struct.pack('ffffff', locals[0], locals[1], locals[2], 
                                         angle[0], angle[1], angle[2]),
-                            ("255.255.255.255", 5162))
+                            ("255.255.255.255", 7112))
             
 
 if __name__ == '__main__':

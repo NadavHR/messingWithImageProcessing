@@ -3,13 +3,13 @@ import gbvision as gbv
 # settings file, here you have the settings, stuff that change based on context
 
 CAMERA_PORT = 1
-EXPOSURE = -9
+EXPOSURE = -5
 
 with open('thr.txt') as f:
   DEFAULT_VALS = [int(f.readline()),
                   int(f.readline()),
                   int(f.readline())]
-DEFAULT_RANGE = [5, 30, 40]
+DEFAULT_RANGE = [5, 50, 70]
 
 DEFAULT_TARGET_THRESHOLD = gbv.ColorThreshold([[DEFAULT_VALS[0] - DEFAULT_RANGE[0], 
                                            DEFAULT_VALS[0] + DEFAULT_RANGE[0]], 
@@ -24,16 +24,16 @@ TARGET =  gbv.GameObject(0.039633272976)
 TARGET1 = gbv.GameObject(0.109544511501)
 
 HUE_KP = 0.0000003
-HUE_KI = 0.00000000001
+HUE_KI = 0.000001
 HUE_KD = 0.000004
 
-SAT_KP = 0.014
-SAT_KI = 0.0000001
-SAT_KD = 0.007 
+SAT_KP = 0.05
+SAT_KI = 0.0
+SAT_KD = 0.0013
 
-VAL_KP = 0.0091
-VAL_KI = 0.0000021 
-VAL_KD = 0.0878
+VAL_KP = 0.12
+VAL_KI = 0.0 
+VAL_KD = 0.018
 
 
 

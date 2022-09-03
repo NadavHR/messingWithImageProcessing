@@ -19,12 +19,12 @@ def main():
         k = window.last_key_pressed
         if k == 'r':
             bbox = cv2.selectROI('feed', frame)
-            
+            print(bbox)
             thr = gbv.median_threshold(frame, stdv, bbox, 'HSV')
             break
     cv2.destroyAllWindows()
     
-    with open('thr.txt', 'w') as f:
+    with open('thr.txt', 'w') as f:\
         f.write('{}\n{}\n{}'.format(thr.__getitem__(0)[0],
                                     thr.__getitem__(1)[0],
                                     thr.__getitem__(2)[0]))
@@ -40,8 +40,8 @@ def main():
             break
         if not after_proc.show_frame(frame):
             break
-    
-    after_proc.close()
+
+    exit()
 
 
 if __name__ == '__main__':
