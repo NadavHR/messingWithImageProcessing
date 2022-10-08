@@ -5,11 +5,13 @@ import gbvision as gbv
 CAMERA_PORT = 1
 EXPOSURE = -5
 
+limelight_cam = gbv.CameraData(23.65066003307307,1.0402162342 , 0.86742863824, name="limelight") 
+
 with open('thr.txt') as f:
   DEFAULT_VALS = [int(f.readline()),
                   int(f.readline()),
                   int(f.readline())]
-DEFAULT_RANGE = [5, 50, 70]
+DEFAULT_RANGE = [5, 60, 80]
 
 DEFAULT_TARGET_THRESHOLD = gbv.ColorThreshold([[DEFAULT_VALS[0] - DEFAULT_RANGE[0], 
                                            DEFAULT_VALS[0] + DEFAULT_RANGE[0]], 
@@ -31,7 +33,7 @@ SAT_KP = 0.05
 SAT_KI = 0.0
 SAT_KD = 0.0013
 
-VAL_KP = 0.12
+VAL_KP = 0.15
 VAL_KI = 0.0 
 VAL_KD = 0.018
 

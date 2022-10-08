@@ -29,7 +29,7 @@ def main():
 
 
 
-
+    
     # the current threshold detected by the camera (used for error calculations)
     cur_thr = settings.DEFAULT_TARGET_THRESHOLD
     # the final threshold used for the next frame
@@ -150,7 +150,7 @@ def main():
             # shows the red square shoqing the place from which we choose our next thr
             frame = gbv.draw_rects(frame, [bbox], (0, 0, 255), thickness=5)
 
-
+            
 
             # NOT RELEVENT: broadcats locally the locals found, only usefull for robotics
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:

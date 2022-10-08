@@ -7,8 +7,6 @@ import cv2
 import numpy as np
 import settings as settings
 
-from main import main
-
 class track_object:
     def __init__(self,  cam: gbv.usb_camera,
                 hue, sat, val, pid_vals, range, target: gbv.GameObject, angle_offset = (0, 0, 0)):   
@@ -20,7 +18,8 @@ class track_object:
         self.cam = cam
         self.__distance_derivative = 0 
         self.distance = 0
-        self.__rects = [] # the rects
+        self.__circs = [] # the circs
+        self.rects = []
         self.__bbox = None # the bounding box from which we update the thr
         self.target_thr = gbv.ColorThreshold([[pid_vals[0] - range[0], 
                                            pid_vals[0] + range[0]], 
@@ -49,8 +48,10 @@ class track_object:
         
         
         
-    def track_cycle(self):
+    def track_cycle(self, frame = None, mode = 0):
         ok = self.update_frame()
+        if (frame is not None):
+            self.__frame = frame
         # error
         hue_error = self.__calc_pid_error(0)
         sat_error = self.__calc_pid_error(1)
@@ -78,18 +79,27 @@ class track_object:
         val += (val_error * self.__val_pid[0]
                 ) + (self.__val_integral * self.__val_pid[1]
                      ) - (val_d * self.__val_pid[2])
+        hue = int(hue)
+        sat = int(sat)
+        val = int(val)
         
         self.__final_thr = gbv.ColorThreshold([[hue - self.range[0], hue + self.range[0]],
                                         [sat - self.range[1], sat + self.range[1]],
                                         [val - self.range[2], val + self.range[2]]],
                                        'HSV') or self.__thr or self.target_thr
+        if mode == 1:
+            cnts = self.__rect()
+        else:
+            cnts = self.__circ()
         
-        rects = self.__rect()
-        
-        if len(rects) > 0:
+        if len(cnts) > 0:
             # find locals
-            root = gbv.BaseRotatedRect.shape_root_area(rects[0])
-            center = gbv.BaseRotatedRect.shape_center(rects[0])
+            if mode == 1:
+                root = gbv.BaseRotatedRect.shape_root_area(cnts[0])
+                center = gbv.BaseRotatedRect.shape_center(cnts[0])
+            else:
+                root = gbv.BaseCircle.shape_root_area(cnts[0])
+                center = gbv.BaseCircle.shape_center(cnts[0])
             locals = self.__target.location_by_params(self.cam, root, center)
             for i in range(3):
                 self.__motion_derivative[i] = self.__locals[i] - locals[i]
@@ -128,7 +138,7 @@ class track_object:
         angle = self.__angle
         try:
             bbox = self.__bbox
-            rect = self.__rects[0]
+            rect = self.__circs[0]
             angle[0] = rect[2]
             bbox_center = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
             rect_center = rect[0]
@@ -156,14 +166,23 @@ class track_object:
             pass
         
     
-    def __rect(self):
-        # rects pipeline
+    def __circ(self):
+        # circss pipeline
         pipe = self.get_threshold_pipe() + gbv.find_contours + gbv.FilterContours(
-            100) + gbv.contours_to_rotated_rects_sorted + gbv.filter_inner_rotated_rects
+            100) + gbv.contours_to_circles_sorted + gbv.filter_inner_circles
+        self.__circs = pipe(self.__frame)
+        return self.__circs
+    
+    def __rect(self):
+        pipe = self.get_threshold_pipe() + gbv.find_contours + gbv.FilterContours(
+            100) + gbv.contours_to_rotated_rects + gbv.filter_inner_rotated_rects
         self.__rects = pipe(self.__frame)
         return self.__rects
     
-    def get_rects(self):
+    def get_circs(self):
+        return self.__circs
+    
+    def get_rects(args):
         return self.__rects
     
     def __calc_pid_error(self, item):
@@ -172,6 +191,15 @@ class track_object:
     
     def get_locals(self):
         return self.__locals
+    
+    def getX(self):
+        return self.__locals[0]
+    
+    def getY(self):
+        return self.__locals[1]
+    
+    def getZ(self):
+        return self.__locals[2]
     
     def get_motion_derivative(self):
         return self.__motion_derivative
@@ -216,9 +244,9 @@ def main():
             raw.show_frame(obj.get_final_thr()(obj.get_raw_frame()))
             # draws the blue squares showing the objects detected
             frame = gbv.draw_rotated_rects(
-                obj.get_raw_frame(), obj.get_rects(), (255, 0, 0), thickness=5)
+                obj.get_raw_frame(), obj.get_circs(), (255, 0, 0), thickness=5)
             try:
-                frame2 = gbv.draw_rects(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
+                frame2 = gbv.draw_circles(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
                 frame = frame2
             except:
                 pass
