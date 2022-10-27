@@ -8,7 +8,7 @@ class Main{
     public static void main(String[] args) {
         try{
             
-            DatagramSocket socket = new DatagramSocket(7112, InetAddress.getByName("0.0.0.0"));
+            DatagramSocket socket = new DatagramSocket(5800, InetAddress.getByName("0.0.0.0"));
             socket.setBroadcast(true);
             System.out.println("Listen on " + socket.getLocalAddress() + " from " + socket.getInetAddress() + " port " + socket.getBroadcast());
             byte[] buf = new byte[24];

@@ -9,7 +9,8 @@ import settings as settings
 
 class track_object:
     def __init__(self,  cam: gbv.usb_camera,
-                hue, sat, val, pid_vals, range, target: gbv.GameObject, angle_offset = (0, 0, 0)):   
+                hue, sat, val, pid_vals, range, target: gbv.GameObject, angle_offset = (0, 0, 0), 
+                denoise_pipe = gbv.MedianBlur(3) + gbv.Dilate(5, 2) + gbv.Erode(5, 2) + gbv.DistanceTransformThreshold(0.1)):   
         self.__motion_derivative = [0, 0, 0] # motion derivative
         self.__locals = [0, 0, 0]
         self.__angle = [0, 0, 0]
@@ -45,6 +46,8 @@ class track_object:
         self.__sat_last_e = 0 
         self.__val_last_e = 0
         self.__val_integral = 0
+        
+        self.denoising_pipe = denoise_pipe
         
         
         
@@ -119,8 +122,7 @@ class track_object:
                 self.__locals[i] += self.__motion_derivative[i]
 
     def get_threshold_pipe(self):
-        return self.__final_thr + gbv.MedianBlur(3) + gbv.Dilate(5, 2
-                                                               ) + gbv.Erode(5, 2) + gbv.DistanceTransformThreshold(0.1)
+        return self.__final_thr + self.denoising_pipe
     
     def __update_bbox(self):
         try:
@@ -243,10 +245,10 @@ def main():
             # shows the red square shoqing the place from which we choose our next thr
             raw.show_frame(obj.get_final_thr()(obj.get_raw_frame()))
             # draws the blue squares showing the objects detected
-            frame = gbv.draw_rotated_rects(
+            frame = gbv.draw_circles(
                 obj.get_raw_frame(), obj.get_circs(), (255, 0, 0), thickness=5)
             try:
-                frame2 = gbv.draw_circles(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
+                frame2 = gbv.draw_rects(frame, [obj.get_bbox()], (0, 0, 255), thickness=5)
                 frame = frame2
             except:
                 pass
@@ -254,6 +256,7 @@ def main():
             win.show_frame(frame)
             locals = obj.get_locals()
             angle = obj.get_angle()
+            
             print(locals)
             print(angle)
             print(obj.distance)
