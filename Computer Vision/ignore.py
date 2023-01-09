@@ -6,7 +6,7 @@ import socket
 
 
 threshold = settings.DEFAULT_TARGET_THRESHOLD + gbv.MedianBlur(3) + gbv.Dilate(12, 9
-        )  + gbv.Erode(5, 9) + gbv.DistanceTransformThreshold(0.3)
+        )  + gbv.Erode(12, 9) + gbv.DistanceTransformThreshold(0.3)
 
 pipe = threshold + gbv.find_contours + gbv.FilterContours(
     100) + gbv.contours_to_rotated_rects_sorted + gbv.filter_inner_rotated_rects

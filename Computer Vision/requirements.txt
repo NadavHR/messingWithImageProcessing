@@ -1,3 +1,4 @@
 gbvision
 opencv-python
 numpy
+pupil-apriltags

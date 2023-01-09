@@ -184,7 +184,7 @@ class track_object:
     def get_circs(self):
         return self.__circs
     
-    def get_rects(args):
+    def get_rects(self):
         return self.__rects
     
     def __calc_pid_error(self, item):

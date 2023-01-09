@@ -3,7 +3,7 @@ import gbvision as gbv
 # settings file, here you have the settings, stuff that change based on context
 
 CAMERA_PORT = 1
-EXPOSURE = -5
+EXPOSURE = -7
 
 limelight_cam = gbv.CameraData(23.65066003307307,1.0402162342 , 0.86742863824, name="limelight") 
 
@@ -20,6 +20,8 @@ DEFAULT_TARGET_THRESHOLD = gbv.ColorThreshold([[DEFAULT_VALS[0] - DEFAULT_RANGE[
                                           [DEFAULT_VALS[2] - DEFAULT_RANGE[2],
                                            DEFAULT_VALS[2] + DEFAULT_RANGE[2]]],
                                          'HSV')
+
+APRIL_TAG_THRESHOLD = gbv.ColorThreshold([[0, 255], [0, 255], [27, 255]], 'HSV')
 
 # this is the square root of your targets area, in this case its a rubber duck
 TARGET =  gbv.GameObject(0.039633272976)
