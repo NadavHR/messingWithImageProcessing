@@ -15,7 +15,7 @@ def main():
     at_detector = Detector(families="tag16h5", quad_sigma=0.8, decode_sharpening=0.4)
     win = gbv.FeedWindow("window")
     thr = gbv.FeedWindow("threshold")
-    pipe = settings.APRIL_TAG_THRESHOLD + gbv.Erode(4, 4) + gbv.Dilate(4, 4)
+    pipe = settings.APRIL_TAG_THRESHOLD + gbv.Erode(4, 1) + gbv.Dilate(4, 1)
     # raw = gbv.FeedWindow("raw")
     while True:
         start_time = time.time()
