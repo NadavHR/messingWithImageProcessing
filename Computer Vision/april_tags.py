@@ -17,6 +17,7 @@ def main():
     thr = gbv.FeedWindow("threshold")
     pipe = settings.APRIL_TAG_THRESHOLD + gbv.Erode(4, 1) + gbv.Dilate(4, 1)
     # raw = gbv.FeedWindow("raw")
+    ghost_tags = []
     while True:
         start_time = time.time()
 
@@ -46,7 +47,18 @@ def main():
 
     cam.release()
     cv.destroyAllWindows()
-
+def ghosts_by_cur_and_last(current_tags, last_tags):
+    ghosts = []
+    for tag in current_tags:
+        for old in last_tags:
+            if tag.tag_id == old.tag_id:
+                ghost = copy.deepcopy(tag)
+                ghost.center += tag.center - old.center
+                for i in len(ghost.corners):
+                    ghost.corners[i] += tag.corners[i] - old.corners[i]
+                ghosts.append(ghost)
+    return ghosts
+                 
 def get_tags_locations(tags, size_area, focal_length, frame_width, frame_height):
     ''' :param focal_length:  the focal length of the camera at it's default state, in units of pixels
     can be described as the square root of the amount of pixels an object takes on a frame, multiplied by it's distance from the camera and divided by the square root of it's surface
