@@ -21,7 +21,7 @@ DEFAULT_TARGET_THRESHOLD = gbv.ColorThreshold([[DEFAULT_VALS[0] - DEFAULT_RANGE[
                                            DEFAULT_VALS[2] + DEFAULT_RANGE[2]]],
                                          'HSV')
 
-APRIL_TAG_THRESHOLD = gbv.ColorThreshold([[0, 255], [0, 255], [60, 255]], 'HSV')
+APRIL_TAG_THRESHOLD = gbv.ColorThreshold([[0, 255], [0, 255], [50, 255]], 'HSV')
 
 # this is the square root of your targets area, in this case its a rubber duck
 TARGET =  gbv.GameObject(0.039633272976)
