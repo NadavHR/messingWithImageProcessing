@@ -51,14 +51,14 @@ def main():
         elapsed_time = time.time() - start_time
         
         # test data send
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-                    sock.sendto(struct.pack('fffff', locations[0][0][0], locations[0][0][1], locations[0][0][2], # xyz
-                                            locations[0][1][0], locations[0][1][1]), # angle
-                        ("255.255.255.255", 7112))
-        except:
-            pass
+        # try:
+        #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+        #             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        #             sock.sendto(struct.pack('fffff', locations[0][0][0], locations[0][0][1], locations[0][0][2], # xyz
+        #                                     locations[0][1][0], locations[0][1][1]), # angle
+        #                 ("255.255.255.255", 7112))
+        # except:
+        #     pass
 
 
     cam.release()
@@ -227,22 +227,37 @@ def triangle_area(a, b, c):
     return (math.sin(math.acos((-(c**2 - a**2 - b**2))/(2 * a * b))) * a * b)/2
 
 def subtract(v1, v2):
+    v1 = copy.deepcopy(v1)
     for i in range(len(v1)):
         v1[i] -= v2[i]
     return v1
 
 def divide_by_v(v1, v2):
+    v1 = copy.deepcopy(v1)
     for i in range(len(v1)):
         v1[i] /= v2[i]
     return v1
 
 def divide_by_s(v, s):
+    v = copy.deepcopy(v)
     for i in range(len(v)):
         v[i] /= s
     return v
 
+def multiply_by_s(v, s):
+    v = copy.deepcopy(v)
+    for i in range(len(v)):
+        v[i] *= s
+    return v
+
 def angle_two_vectors(v1, v2):
     return math.atan2(v1, v2)
+
+def add_vectors(v1, v2):
+    v1 = copy.deepcopy(v1)
+    for i in range(len(v1)):
+        v1[i] += v2[i]
+    return v1
 
 def draw_tags(image, tags, elapsed_time):
     for tag in tags:
@@ -273,9 +288,88 @@ def draw_tags(image, tags, elapsed_time):
                 (corner_04[0], corner_04[1]), (0, 255, 0), 2)
         cv.line(image, (corner_04[0], corner_04[1]),
                 (corner_01[0], corner_01[1]), (0, 255, 0), 2)
-
+        # choose half 01, 02, 03
+        len_line_1 = distance(corner_01, corner_02)
+        len_line_2 = distance(corner_02, corner_03)
         cv.putText(image, str(tag_id), (center[0] - 10, center[1] - 10),
-                   cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv.LINE_AA)
+            cv.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2, cv.LINE_AA)
+        corner_01 = list(corner_01)
+        corner_02 = list(corner_02)
+        corner_03 = list(corner_03)
+        corner_04 = list(corner_04)
+        center = midpoint(midpoint(corner_01, corner_02), midpoint(corner_03, corner_04))
+        if len_line_1 >= len_line_2: 
+            # choose line 2 and center (02, 03)
+            len_line_1 = distance(center, corner_02)
+            len_line_2 = distance(center, corner_03)
+            try:
+                ratio_line_1 = len_line_1 / (len_line_1  + len_line_2)
+                intersect_axl_with_side = add_vectors(multiply_by_s(subtract(corner_02, corner_03), ratio_line_1), corner_03)
+                axl_to_center = distance(intersect_axl_with_side, center)
+                mid_side_opposed = midpoint(corner_02, corner_03)
+                axl_to_mid_side = distance(intersect_axl_with_side, mid_side_opposed)
+                half_side_len = distance(mid_side_opposed, corner_02)
+                # half_side_len**2 + (half_side_len * (axl_to_mid_side / half_side_len))**2 = axl_to_center**2
+                axl_by_half_side = (axl_to_mid_side/half_side_len)
+                # (half_side_len**2)*(1 + (axl_by_half_side**2)) = axl_to_center**2
+                true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
+                # axl_to_center**2 + len_line_1**2 - 2* axl_to_center * len_line_1 * cos(a) = distance(intersect_axl_with_side, corner_02)**2
+                # (distance(intersect_axl_with_side, corner_02)**2 - axl_to_center**2 - len_line_1**2) / (2*axl_to_center * len_line_1)
+                
+                
+                # side_oposed_center_vec = subtract(corner_02, corner_03)
+                # len_side_opposed_center = magnitude(side_oposed_center_vec)
+                # normalized_opposed = divide_by_s(side_oposed_center_vec, len_side_opposed_center)
+                # line_from_ratio = multiply_by_s(normalized_opposed, ratio)
+                # line_from_ratio = add_vectors(line_from_ratio, corner_03)
+            except:
+                true_half_side_length = 0
+        # elif len_line_2 >= len_line_1:
+        else:
+                        # choose line 1 and center (02, 01)
+            len_line_1 = distance(center, corner_01)
+            len_line_2 = distance(center, corner_02)
+            try:
+                ratio_line_1 = len_line_1 / (len_line_1  + len_line_2)
+                intersect_axl_with_side = add_vectors(multiply_by_s(subtract(corner_01, corner_02), ratio_line_1), corner_02)
+                axl_to_center = distance(intersect_axl_with_side, center)
+                mid_side_opposed = midpoint(corner_01, corner_02)
+                axl_to_mid_side = distance(intersect_axl_with_side, mid_side_opposed)
+                half_side_len = distance(mid_side_opposed, corner_01)
+                # half_side_len**2 + (half_side_len * (axl_to_mid_side / half_side_len))**2 = axl_to_center**2
+                axl_by_half_side = (axl_to_mid_side/half_side_len)
+                # (half_side_len**2)*(1 + (axl_by_half_side**2)) = axl_to_center**2
+                true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
+                # axl_to_center**2 + len_line_1**2 - 2* axl_to_center * len_line_1 * cos(a) = distance(intersect_axl_with_side, corner_02)**2
+                # (distance(intersect_axl_with_side, corner_02)**2 - axl_to_center**2 - len_line_1**2) / (2*axl_to_center * len_line_1)
+                
+                
+                # side_oposed_center_vec = subtract(corner_02, corner_03)
+                # len_side_opposed_center = magnitude(side_oposed_center_vec)
+                # normalized_opposed = divide_by_s(side_oposed_center_vec, len_side_opposed_center)
+                # line_from_ratio = multiply_by_s(normalized_opposed, ratio)
+                # line_from_ratio = add_vectors(line_from_ratio, corner_03)
+            except:
+                true_half_side_length = 0
+        corners_facing_cam_01 = add_vectors(center, [true_half_side_length, true_half_side_length]) 
+        corners_facing_cam_02 = add_vectors(center, [-true_half_side_length, true_half_side_length]) 
+        corners_facing_cam_03 = add_vectors(center, [-true_half_side_length, -true_half_side_length]) 
+        corners_facing_cam_04 = add_vectors(center, [true_half_side_length, -true_half_side_length]) 
+        
+        corners_facing_cam_01 = [int(corners_facing_cam_01[0]), int(corners_facing_cam_01[1])]
+        corners_facing_cam_02 = [int(corners_facing_cam_02[0]), int(corners_facing_cam_02[1])]
+        corners_facing_cam_03 = [int(corners_facing_cam_03[0]), int(corners_facing_cam_03[1])]
+        corners_facing_cam_04 = [int(corners_facing_cam_04[0]), int(corners_facing_cam_04[1])]
+        
+        cv.line(image, (corners_facing_cam_01[0], corners_facing_cam_01[1]),
+                (corners_facing_cam_02[0], corners_facing_cam_02[1]), (0, 0, 255), 2)
+        cv.line(image, (corners_facing_cam_02[0], corners_facing_cam_02[1]),
+                (corners_facing_cam_03[0], corners_facing_cam_03[1]), (0, 0, 255), 2)
+        cv.line(image, (corners_facing_cam_03[0], corners_facing_cam_03[1]),
+                (corners_facing_cam_04[0], corners_facing_cam_04[1]), (0, 255, 0), 2)
+        cv.line(image, (corners_facing_cam_04[0], corners_facing_cam_04[1]),
+                (corners_facing_cam_01[0], corners_facing_cam_01[1]), (0, 255, 0), 2)
+
 
     cv.putText(image,
                "Elapsed Time:" + '{:.1f}'.format(elapsed_time * 1000) + "ms",

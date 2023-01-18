@@ -3,7 +3,7 @@ import gbvision as gbv
 # settings file, here you have the settings, stuff that change based on context
 
 CAMERA_PORT = 1
-EXPOSURE = -9
+EXPOSURE = -5
 
 limelight_cam = gbv.CameraData(23.65066003307307,1.0402162342 , 0.86742863824, name="limelight") 
 
