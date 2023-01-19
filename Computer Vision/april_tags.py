@@ -102,12 +102,14 @@ def wall_angle_and_locations(tags, side_length, focal_length, frame_width, frame
         side2_xyz = [0, 0, 0]
         center = tag.center
         corners = tag.corners
+        
         line1 = distance(corners[0], corners[1])
         line2 = distance(corners[1], corners[2])
-        line3 = distance(corners[2], corners[3])
-        line4 = distance(corners[3], corners[0])
-        diagonal = distance(corners[0], corners[2]) 
-        pixels_area = triangle_area(line1, line2, diagonal) + triangle_area(line3, line4, diagonal)
+        # line3 = distance(corners[2], corners[3])
+        # line4 = distance(corners[3], corners[0])
+        # diagonal = distance(corners[0], corners[2]) 
+        # pixels_area = triangle_area(line1, line2, diagonal) + triangle_area(line3, line4, diagonal)
+        pixels_area = get_true_square_area(corners[0], corners[1], corners[2], corners[3])
         xyz[2] = (side_length) * focal_length / (pixels_area**0.5)
         xyz[0] = (((side_length)/(pixels_area**0.5))) * (center[0] - (frame_width/2))
         xyz[1] = (((side_length)/(pixels_area**0.5))) * (center[1] - (frame_height/2))
@@ -194,12 +196,13 @@ def get_tags_locations(tags, size_area, focal_length, frame_width, frame_height)
         xyz = [0, 0, 0]
         center = tag.center
         corners = tag.corners
-        line1 = distance(corners[0], corners[1])
-        line2 = distance(corners[1], corners[2])
-        line3 = distance(corners[2], corners[3])
-        line4 = distance(corners[3], corners[0])
-        diagonal = distance(corners[0], corners[2]) 
-        pixels_area = triangle_area(line1, line2, diagonal) + triangle_area(line3, line4, diagonal)
+        # line1 = distance(corners[0], corners[1])
+        # line2 = distance(corners[1], corners[2])
+        # line3 = distance(corners[2], corners[3])
+        # line4 = distance(corners[3], corners[0])
+        # diagonal = distance(corners[0], corners[2]) 
+        # pixels_area = triangle_area(line1, line2, diagonal) + triangle_area(line3, line4, diagonal)
+        pixels_area = get_true_square_area(corners[0], corners[1], corners[2], corners[3])
         xyz[2] = (size_area**0.5) * focal_length / (pixels_area**0.5)
         xyz[0] = (((size_area**0.5)/(pixels_area**0.5))) * (center[0] - (frame_width/2))
         xyz[1] = (((size_area**0.5)/(pixels_area**0.5))) * (center[1] - (frame_height/2))
@@ -300,66 +303,29 @@ def draw_tags(image, tags, elapsed_time):
         center = midpoint(midpoint(corner_01, corner_02), midpoint(corner_03, corner_04))
         if len_line_1 >= len_line_2: 
             # choose line 2 and center (02, 03)
-            len_line_1 = distance(center, corner_02)
-            len_line_2 = distance(center, corner_03)
-            try:
-                ratio_line_1 = len_line_1 / (len_line_1  + len_line_2)
-                intersect_axl_with_side = add_vectors(multiply_by_s(subtract(corner_02, corner_03), ratio_line_1), corner_03)
-                axl_to_center = distance(intersect_axl_with_side, center)
-                mid_side_opposed = midpoint(corner_02, corner_03)
-                axl_to_mid_side = distance(intersect_axl_with_side, mid_side_opposed)
-                half_side_len = distance(mid_side_opposed, corner_02)
-                # half_side_len**2 + (half_side_len * (axl_to_mid_side / half_side_len))**2 = axl_to_center**2
-                axl_by_half_side = (axl_to_mid_side/half_side_len)
-                # (half_side_len**2)*(1 + (axl_by_half_side**2)) = axl_to_center**2
-                true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
-                # axl_to_center**2 + len_line_1**2 - 2* axl_to_center * len_line_1 * cos(a) = distance(intersect_axl_with_side, corner_02)**2
-                # (distance(intersect_axl_with_side, corner_02)**2 - axl_to_center**2 - len_line_1**2) / (2*axl_to_center * len_line_1)
-                
-                
-                # side_oposed_center_vec = subtract(corner_02, corner_03)
-                # len_side_opposed_center = magnitude(side_oposed_center_vec)
-                # normalized_opposed = divide_by_s(side_oposed_center_vec, len_side_opposed_center)
-                # line_from_ratio = multiply_by_s(normalized_opposed, ratio)
-                # line_from_ratio = add_vectors(line_from_ratio, corner_03)
-            except:
-                true_half_side_length = 0
-        # elif len_line_2 >= len_line_1:
+            true_half_side_length = get_half_side_length(center, corner_02, corner_03)
+            axl_intersection = get_axl_intersection(corner_02, corner_03, center)
+            opposed_axl_intersection = get_axl_intersection(corner_01, corner_04, center)
         else:
-                        # choose line 1 and center (02, 01)
-            len_line_1 = distance(center, corner_01)
-            len_line_2 = distance(center, corner_02)
-            try:
-                ratio_line_1 = len_line_1 / (len_line_1  + len_line_2)
-                intersect_axl_with_side = add_vectors(multiply_by_s(subtract(corner_01, corner_02), ratio_line_1), corner_02)
-                axl_to_center = distance(intersect_axl_with_side, center)
-                mid_side_opposed = midpoint(corner_01, corner_02)
-                axl_to_mid_side = distance(intersect_axl_with_side, mid_side_opposed)
-                half_side_len = distance(mid_side_opposed, corner_01)
-                # half_side_len**2 + (half_side_len * (axl_to_mid_side / half_side_len))**2 = axl_to_center**2
-                axl_by_half_side = (axl_to_mid_side/half_side_len)
-                # (half_side_len**2)*(1 + (axl_by_half_side**2)) = axl_to_center**2
-                true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
-                # axl_to_center**2 + len_line_1**2 - 2* axl_to_center * len_line_1 * cos(a) = distance(intersect_axl_with_side, corner_02)**2
-                # (distance(intersect_axl_with_side, corner_02)**2 - axl_to_center**2 - len_line_1**2) / (2*axl_to_center * len_line_1)
-                
-                
-                # side_oposed_center_vec = subtract(corner_02, corner_03)
-                # len_side_opposed_center = magnitude(side_oposed_center_vec)
-                # normalized_opposed = divide_by_s(side_oposed_center_vec, len_side_opposed_center)
-                # line_from_ratio = multiply_by_s(normalized_opposed, ratio)
-                # line_from_ratio = add_vectors(line_from_ratio, corner_03)
-            except:
-                true_half_side_length = 0
+            # choose line 1 and center (02, 01)
+            true_half_side_length = get_half_side_length(center, corner_02, corner_01)
+            axl_intersection = get_axl_intersection(corner_02, corner_01, center)
+            opposed_axl_intersection = get_axl_intersection(corner_03, corner_04, center)
+        
         corners_facing_cam_01 = add_vectors(center, [true_half_side_length, true_half_side_length]) 
         corners_facing_cam_02 = add_vectors(center, [-true_half_side_length, true_half_side_length]) 
         corners_facing_cam_03 = add_vectors(center, [-true_half_side_length, -true_half_side_length]) 
         corners_facing_cam_04 = add_vectors(center, [true_half_side_length, -true_half_side_length]) 
         
+        
         corners_facing_cam_01 = [int(corners_facing_cam_01[0]), int(corners_facing_cam_01[1])]
         corners_facing_cam_02 = [int(corners_facing_cam_02[0]), int(corners_facing_cam_02[1])]
         corners_facing_cam_03 = [int(corners_facing_cam_03[0]), int(corners_facing_cam_03[1])]
         corners_facing_cam_04 = [int(corners_facing_cam_04[0]), int(corners_facing_cam_04[1])]
+        
+        cv.line(image, (int(axl_intersection[0]), int(axl_intersection[1])),
+                (int(opposed_axl_intersection[0]), int(opposed_axl_intersection[1])), (0, 255,0), 2)
+        cv.circle(image, (int(axl_intersection[0]), int(axl_intersection[1])), 5, (0, 255, 0), 2)
         
         cv.line(image, (corners_facing_cam_01[0], corners_facing_cam_01[1]),
                 (corners_facing_cam_02[0], corners_facing_cam_02[1]), (0, 0, 255), 2)
@@ -379,6 +345,18 @@ def draw_tags(image, tags, elapsed_time):
     return image
 
 
+def get_true_square_area(corner_01, corner_02, corner_03, corner_04):
+    center = midpoint(midpoint(corner_01, corner_02), midpoint(corner_03, corner_04))
+    len_line_1 = distance(corner_01, corner_02)
+    len_line_2 = distance(corner_02, corner_03)
+    if len_line_1 >= len_line_2: 
+        # choose line 2 and center (02, 03)
+        true_half_side_length = get_half_side_length(center, corner_02, corner_03)
+    else:
+        # choose line 1 and center (02, 01)
+        true_half_side_length = get_half_side_length(center, corner_02, corner_01)
+    return (true_half_side_length * 2)**2
+
 def draw_tags_locations(image, tags, locations):
     for i in range(len(tags)):
         tag = tags[i]
@@ -391,6 +369,28 @@ def draw_tags_locations(image, tags, locations):
                    cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 0, 0), 2, cv.LINE_AA)
 
     return image
+
+def get_half_side_length(center, corner_01, corner_02):
+    try:
+        intersect_axl_with_side = get_axl_intersection(corner_01, corner_02, center)
+        axl_to_center = distance(intersect_axl_with_side, center)
+        mid_side_opposed = midpoint(corner_01, corner_02)
+        axl_to_mid_side = distance(intersect_axl_with_side, mid_side_opposed)
+        half_side_len = distance(mid_side_opposed, corner_01)
+        axl_by_half_side = (axl_to_mid_side/half_side_len)
+        # true_half_side_len**2 + (true_half_side_len * (axl_to_mid_side / half_side_len))**2 = axl_to_center**2
+        # (true_half_side_len**2)*(1 + (axl_by_half_side**2)) = axl_to_center**2
+        true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
+        return true_half_side_length
+    except:
+        return 0
+
+def get_axl_intersection(corner_01, corner_02, center):
+    len_line_1 = distance(center, corner_01)
+    len_line_2 = distance(center, corner_02)
+    ratio_line_1 = len_line_1 / (len_line_1  + len_line_2)
+    return add_vectors(multiply_by_s(subtract(corner_01, corner_02), ratio_line_1), corner_02)
+
 
 def draw_tags_locations_and_wall_angle(image, tags, locations):
     for i in range(len(tags)):
