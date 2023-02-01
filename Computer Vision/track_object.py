@@ -138,23 +138,29 @@ class track_object:
     
     def get_angle(self):
         angle = self.__angle
+        locals = self.__locals
         try:
-            bbox = self.__bbox
-            rect = self.__circs[0]
-            angle[0] = rect[2]
-            bbox_center = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
-            rect_center = rect[0]
-            dis = (rect_center[0] - bbox_center[0], rect_center[1] - bbox_center[1])
-            angle[1] = math.atan(dis[0] / rect[1][0]) * 57.2957795
-            angle[2] = math.atan(dis[1] / rect[1][1]) * 57.2957795
-            # updates angle derivative
-            self.__angle_derivative = (-self.__angle[0] + angle[0],
-                                       -self.__angle[1] + angle[1],
-                                       -self.__angle[2] + angle[2])
+            angle[1] = np.arcsin(locals[0] / locals[2]) * 180 / np.pi
+            angle[2] = np.arcsin(locals[1] / locals[2]) * 180 / np.pi
         except:
-            angle = [self.__angle[0] + self.__angle_derivative[0],
-                     self.__angle[1] + self.__angle_derivative[1],
-                     self.__angle[2] + self.__angle_derivative[2]]
+            pass
+        # try:
+        #     bbox = self.__bbox
+        #     rect = self.__circs[0]
+        #     angle[0] = rect[2]
+        #     bbox_center = ((bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2)
+        #     rect_center = rect[0]
+        #     dis = (rect_center[0] - bbox_center[0], rect_center[1] - bbox_center[1])
+        #     angle[1] = math.atan(dis[0] / rect[1][0]) * 57.2957795
+        #     angle[2] = math.atan(dis[1] / rect[1][1]) * 57.2957795
+        #     # updates angle derivative
+        #     self.__angle_derivative = (-self.__angle[0] + angle[0],
+        #                                -self.__angle[1] + angle[1],
+        #                                -self.__angle[2] + angle[2])
+        # except:
+        #     angle = [self.__angle[0] + self.__angle_derivative[0],
+        #              self.__angle[1] + self.__angle_derivative[1],
+        #              self.__angle[2] + self.__angle_derivative[2]]
         self.__angle = angle
         return angle
 

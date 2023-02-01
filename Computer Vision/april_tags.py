@@ -18,7 +18,7 @@ def main():
     win = gbv.FeedWindow("window")
     thr = gbv.FeedWindow("threshold")
     pipe = settings.APRIL_TAG_THRESHOLD + gbv.Erode(1, 4) + gbv.Dilate(1, 4) 
-    # raw = gbv.FeedWindow("raw")
+    raw = gbv.FeedWindow("raw")
     ghost_tags = []
     last_tags = []
     while True:
@@ -44,6 +44,13 @@ def main():
 
         debug_image = draw_tags(debug_image, tags, elapsed_time)
         locations = wall_angle_and_locations(tags, 15.3, F_LENGTH, cam.get_width(), cam.get_height())
+        # TEMP!!!   
+        black = copy.deepcopy(debug_image)
+        black = gbv.ColorThreshold([[0,0], [0,0], [0,0]], 'HSV')(black)
+        black = cv.cvtColor(black, cv.COLOR_BAYER_GR2BGR)
+        black = draw_tags(black, tags, 0)
+        raw.show_frame(black)
+        # end temp
         debug_image = draw_tags_locations_and_wall_angle(debug_image, tags, locations)
         
         
@@ -51,14 +58,14 @@ def main():
         elapsed_time = time.time() - start_time
         
         # test data send
-        # try:
-        #     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
-        #             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        #             sock.sendto(struct.pack('fffff', locations[0][0][0], locations[0][0][1], locations[0][0][2], # xyz
-        #                                     locations[0][1][0], locations[0][1][1]), # angle
-        #                 ("255.255.255.255", 7112))
-        # except:
-        #     pass
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
+                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+                    sock.sendto(struct.pack('fffff', locations[0][0][0], locations[0][0][1], locations[0][0][2], # xyz
+                                            locations[0][1][0], locations[0][1][1]), # angle
+                        ("255.255.255.255", 7112))
+        except:
+            pass
 
 
     cam.release()
@@ -136,8 +143,22 @@ def wall_angle_and_locations(tags, side_length, focal_length, frame_width, frame
         # angle = math.acos(-(d**2 - s1**2 - s2**2) / (2*s1*s2))
         # uses side1_xyz and side2_xyz bc they are further apart from each other than they are from xyz 
 
-        angle_to_wall_x = angle_to_wall(side1_xyz[0], side1_xyz[2], side2_xyz[0], side2_xyz[2])
-        angle_to_wall_y = angle_to_wall(side1_xyz[1], side1_xyz[2], side2_xyz[1], side2_xyz[2])
+        # angle_to_wall_x = angle_to_wall(side1_xyz[0], side1_xyz[2], side2_xyz[0], side2_xyz[2])
+        # angle_to_wall_y = angle_to_wall(side1_xyz[1], side1_xyz[2], side2_xyz[1], side2_xyz[2])
+        if line1 >= line2: 
+            # choose line 2 and center (02, 03)
+            true_diagonal_length = get_half_side_length(center, corners[0], corners[1]) * 2
+        else:
+            # choose line 1 and center (02, 01)
+            true_diagonal_length = get_half_side_length(center, corners[1], corners[2]) * 2
+        true_diagonal_length *= (2**0.5)
+
+        try:
+            angle_to_wall_x = get_line_angle_to_plane(true_diagonal_length, distance(corners[0], corners[2]))
+            angle_to_wall_y = get_line_angle_to_plane(true_diagonal_length, distance(corners[1], corners[3]))
+        except:
+            angle_to_wall_x = 0
+            angle_to_wall_y = 0
         # angle_to_wall_y = 0
         # try:
         #     # hypotenuse1 = magnitude(side1_xyz)
@@ -163,8 +184,8 @@ def wall_angle_and_locations(tags, side_length, focal_length, frame_width, frame
         #     pass
         # # angle_to_wall = math.asin(next_to_angle/hypotenuse)
         # angle_to_wall = math.atan2(front_to_angle, next_to_angle) 
-
-        
+        if angle_to_wall_x ==0:
+            print(str(true_diagonal_length))
         locations.append((xyz, (angle_to_wall_x, angle_to_wall_y)))
     return locations
         
@@ -208,6 +229,14 @@ def get_tags_locations(tags, size_area, focal_length, frame_width, frame_height)
         xyz[1] = (((size_area**0.5)/(pixels_area**0.5))) * (center[1] - (frame_height/2))
         locations.append(xyz)
     return locations
+
+def get_line_angle_to_plane(true_line_length, frame_line_length):
+    """
+    calculates how much you need to move the line in the z axis to get real line distance, only works one lines rotated to be smaller (such as the diagonals who always appear the correct size or shorter)
+    :param true_line_length: not the actual lines length IRL but the length in pixels it would have taken if the tag faced the camera
+    :param frame_line_length: the distance between on edge of the line to the other in frame
+    """
+    return math.asin(frame_line_length / true_line_length)
 
 def angle_to_wall(x1, z1, x2, z2):
     angle_to_z_side1 = angle_two_vectors(x1, z1)
@@ -311,7 +340,7 @@ def draw_tags(image, tags, elapsed_time):
             true_half_side_length = get_half_side_length(center, corner_02, corner_01)
             axl_intersection = get_axl_intersection(corner_02, corner_01, center)
             opposed_axl_intersection = get_axl_intersection(corner_03, corner_04, center)
-        
+        print("a" + str(true_half_side_length*2*(2**0.5)))
         corners_facing_cam_01 = add_vectors(center, [true_half_side_length, true_half_side_length]) 
         corners_facing_cam_02 = add_vectors(center, [-true_half_side_length, true_half_side_length]) 
         corners_facing_cam_03 = add_vectors(center, [-true_half_side_length, -true_half_side_length]) 
@@ -325,16 +354,15 @@ def draw_tags(image, tags, elapsed_time):
         
         cv.line(image, (int(axl_intersection[0]), int(axl_intersection[1])),
                 (int(opposed_axl_intersection[0]), int(opposed_axl_intersection[1])), (0, 255,0), 2)
-        cv.circle(image, (int(axl_intersection[0]), int(axl_intersection[1])), 5, (0, 255, 0), 2)
         
-        cv.line(image, (corners_facing_cam_01[0], corners_facing_cam_01[1]),
-                (corners_facing_cam_02[0], corners_facing_cam_02[1]), (0, 0, 255), 2)
-        cv.line(image, (corners_facing_cam_02[0], corners_facing_cam_02[1]),
-                (corners_facing_cam_03[0], corners_facing_cam_03[1]), (0, 0, 255), 2)
-        cv.line(image, (corners_facing_cam_03[0], corners_facing_cam_03[1]),
-                (corners_facing_cam_04[0], corners_facing_cam_04[1]), (0, 255, 0), 2)
-        cv.line(image, (corners_facing_cam_04[0], corners_facing_cam_04[1]),
-                (corners_facing_cam_01[0], corners_facing_cam_01[1]), (0, 255, 0), 2)
+        # cv.line(image, (corners_facing_cam_01[0], corners_facing_cam_01[1]),
+        #         (corners_facing_cam_02[0], corners_facing_cam_02[1]), (0, 0, 255), 2)
+        # cv.line(image, (corners_facing_cam_02[0], corners_facing_cam_02[1]),
+        #         (corners_facing_cam_03[0], corners_facing_cam_03[1]), (0, 0, 255), 2)
+        # cv.line(image, (corners_facing_cam_03[0], corners_facing_cam_03[1]),
+        #         (corners_facing_cam_04[0], corners_facing_cam_04[1]), (0, 255, 0), 2)
+        # cv.line(image, (corners_facing_cam_04[0], corners_facing_cam_04[1]),
+        #         (corners_facing_cam_01[0], corners_facing_cam_01[1]), (0, 255, 0), 2)
 
 
     cv.putText(image,
@@ -383,7 +411,8 @@ def get_half_side_length(center, corner_01, corner_02):
         true_half_side_length = (((axl_to_center**2) / (1 + (axl_by_half_side**2)))**0.5)
         return true_half_side_length
     except:
-        return 0
+        # this calculation is very much not true but its more accurate than returning an arbitrary number
+        return ((distance(corner_01, corner_02) + distance(corner_01, center) + distance(corner_02, center)) / 2)*1.5
 
 def get_axl_intersection(corner_01, corner_02, center):
     len_line_1 = distance(center, corner_01)
