@@ -140,10 +140,13 @@ class track_object:
         angle = self.__angle
         locals = self.__locals
         try:
-            angle[1] = np.arcsin(locals[0] / locals[2]) * 180 / np.pi
-            angle[2] = np.arcsin(locals[1] / locals[2]) * 180 / np.pi
+            angle[1] = np.arctan2(locals[0], locals[2]) * 180 / np.pi
         except:
-            pass
+            angle[1] = self.__angle[1]
+        try:
+            angle[2] = np.arctan2(locals[1], locals[2]) * 180 / np.pi
+        except:
+            angle[2] = self.__angle[2]
         # try:
         #     bbox = self.__bbox
         #     rect = self.__circs[0]
