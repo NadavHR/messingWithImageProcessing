@@ -88,10 +88,10 @@ this method returns the xyz position of the rectangles corners in real life
 corners: the corners of the rectangle
 diag_length: the length of the diagonal of the rectangle in real life
 focal_length should be given as: sqrt(tan(fov_x/2)*2*tan(fov_y/2)*2)
-
+rect_width and rect_height: the width and the height of the rect irl
 '''
-def find_rect_corners_xyz(corners, diag_length, focal_length, width, height):
-    
+def find_rect_corners_xyz(corners, rect_width, rect_height, focal_length, width, height):
+    diag_length = (rect_width**2+rect_height**2)**0.5
     proj_center = find_projected_rect_middle(corners) # where the center is projected to
     norm_center = proj_point_to_norm_vector_3d(proj_center, focal_length, width, height) # the normalized vector that points to the direction of the center irl
     # angle_to_center = vec_3d_x_y_rot(norm_center) # the x and y rotation of the vector pointing to the center (in radians)
@@ -110,6 +110,11 @@ def find_rect_corners_xyz(corners, diag_length, focal_length, width, height):
     else:
         p1 *= (1/scalar)
         p3 *= (1/scalar)
+    scalar = ((rect_width*rect_height)/(distance(p1, p2)*distance(p2,p3)))
+    p1 = p1 * scalar
+    p2 = p2 * scalar
+    p3 = p3 * scalar
+    p4 = p4 * scalar
     # /temp
     return [p1, p2, p3, p4]
     
@@ -157,7 +162,7 @@ def main():
     cam = gbv.USBCamera(settings.CAMERA_PORT, gbv.LIFECAM_3000)
     cam.set_exposure(settings.EXPOSURE)
     F_LENGTH = (math.tan(0.4435563306578366)*2*math.tan(0.3337068395920225)*2)**0.5 
-    DIAG_LENGTH = 15.3 * (2**0.5)
+    SIDE_LENGTH = 15.3
     
     win = gbv.FeedWindow("window")
     while True:
@@ -174,19 +179,18 @@ def main():
             
             for corners in proj_squares:
                 
-                corners_3d = find_rect_corners_xyz(corners[0], DIAG_LENGTH, F_LENGTH, cam.get_width(), cam.get_height())
+                corners_3d = find_rect_corners_xyz(corners[0], SIDE_LENGTH, SIDE_LENGTH, F_LENGTH, cam.get_width(), cam.get_height())
                 
                 
                 center_3d = 0.5*(corners_3d[0] + corners_3d[2])
-                print(math.acos(np.dot(norm(corners_3d[0] - center_3d), norm(corners_3d[1] - center_3d))) * 180/math.pi) #  this was to check if the angles really are 90 degrees as they should be
+                # print(math.acos(np.dot(norm(corners_3d[0] - center_3d), norm(corners_3d[1] - center_3d))) * 180/math.pi) #  this was to check if the angles really are 90 degrees as they should be
                 proj_center =  project_point(center_3d[0], center_3d[1], center_3d[2], cam.get_width(), cam.get_height(), F_LENGTH)
-                proj_cros_axis_point = get_cross_axis_no_flip(corners_3d[0], corners_3d[1], center_3d, DIAG_LENGTH)
+                proj_cros_axis_point = get_cross_axis_no_flip(corners_3d[0], corners_3d[1], center_3d, SIDE_LENGTH)
                 proj_cros_axis_point = project_point(proj_cros_axis_point[0], proj_cros_axis_point[1], proj_cros_axis_point[2], cam.get_width(), cam.get_height(), F_LENGTH)
-                cv2.line(frame,(int(proj_center[0]), int(proj_center[1])), 
-                         (int(proj_cros_axis_point[0]), int(proj_cros_axis_point[1])), (0,0,255), 5)
+                
                 cv2.circle(frame, (int(proj_center[0]), int(proj_center[1])), 5, (255,0,0), 10)
-                # print(magnitude(center_3d)/magnitude(0.5*(corners_3d[1] + corners_3d[3])))
-                # print(distance(corners_3d[0], corners_3d[1]) / distance(corners_3d[2], corners_3d[3]))
+                print(magnitude(center_3d))
+                # print(distance(corners_3d[0], corners_3d[1]) )
                 # print(max(max(max(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]) - min(min(min(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]))
                 for i in range(len(corners_3d)):
                     corner = corners_3d[i]
@@ -196,6 +200,8 @@ def main():
                     cv2.circle(frame, (int(proj_corner[0]), int(proj_corner[1])), int(0.01/corner[2]), (255,0,0), 10)
                     cv2.putText(frame, str((int(corner[2] * 1000))/1000), (int(proj_corner[0]) + 10, int(proj_corner[1]) + 10),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,255,0), 2)
+                cv2.line(frame,(int(proj_center[0]), int(proj_center[1])), 
+                         (int(proj_cros_axis_point[0]), int(proj_cros_axis_point[1])), (0,0,255), 5)
             win.show_frame(frame)
         
         
