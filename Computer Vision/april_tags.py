@@ -9,7 +9,6 @@ import cv2 as cv
 from pupil_apriltags import Detector
 
 def main():
-
     elapsed_time = 0
     F_LENGTH = (697.0395744431028 / 38) #* 34
     SIDE_LENGTH = 0.153
@@ -440,7 +439,9 @@ def get_length_in_frame(focal_length, line_distance, length_irl):
     # let P be the ammount of pixels the line takes on frame, let D be the lines distance from the camera, let S be the lines length, let F be focal_length
     # P * D / S = F ----> F * S = P * D ---> P = F * S / D
     return focal_length * length_irl / line_distance
-
+def get_tag_points_location_by_height(tag, tag_size, tag_height, frame_height, frame_width):
+    corners = tag.corners
+    
 def get_true_coords_center(line1_coords, line2_coords, line3_coords, line4_coords, focal_length):
     '''
     let line coords be the real locations of each of the lines sides
