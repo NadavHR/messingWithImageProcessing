@@ -103,14 +103,22 @@ def find_rect_corners_xyz(corners, rect_width, rect_height, focal_length, width,
     p1, p3 = get_opposite_corners_xyz(norm_p1, norm_p3, norm_center, diag_length)
     p2, p4 = get_opposite_corners_xyz(norm_p2, norm_p4, norm_center, diag_length)
     # temp/
-    scalar = magnitude(0.5*(p1 + p3)) / magnitude(0.5*(p2 + p4))
-    if (scalar > 1):
-        p2 *= scalar
-        p4 *= scalar
-    else:
-        p1 *= (1/scalar)
-        p3 *= (1/scalar)
-    scalar = ((rect_width*rect_height)/(distance(p1, p2)*distance(p2,p3)))
+    # scalar = magnitude(0.5*(p1 + p3)) / magnitude(0.5*(p2 + p4))
+    # if (scalar > 1):
+    #     p2 *= scalar
+    #     p4 *= scalar
+    # else:
+    #     p1 *= (1/scalar)
+    #     p3 *= (1/scalar)
+    m1 = magnitude(0.5*(p1 + p3))
+    m2= magnitude(0.5*(p2 + p4))
+    avg = (m1 + m2)/2
+    p1 *= avg/m1
+    p2 *= avg/m2
+    p3 *= avg/m1
+    p4 *= avg/m2
+    
+    scalar = ((rect_width*rect_height)/(distance(p1, p2)*distance(p2,p3))) 
     p1 = p1 * scalar
     p2 = p2 * scalar
     p3 = p3 * scalar
@@ -156,18 +164,27 @@ def get_cross_axis_no_flip(p1,p2, center, line_length = 1):
     if (magnitude(option1) < magnitude(option2)):
         return option1
     return option2
- 
-def main():
-    # np.set_printoptions(7)
-    cam = gbv.USBCamera(settings.CAMERA_PORT, gbv.LIFECAM_3000)
-    cam.set_exposure(settings.EXPOSURE)
-    F_LENGTH = (math.tan(0.4435563306578366)*2*math.tan(0.3337068395920225)*2)**0.5 
-    SIDE_LENGTH = 15.3
-    
-    win = gbv.FeedWindow("window")
-    while True:
-        ok, frame = cam.read()
-        if frame is not None:
+
+
+def undistort_frame(frame, matrix, distortion):
+    if frame is not None:
+        h, w = frame.shape[:2]
+        newcameramtx, roi=cv2.getOptimalNewCameraMatrix(matrix,distortion,(w,h),1,(w,h))
+        # undistort
+        mapx,mapy = cv2.initUndistortRectifyMap(matrix,distortion,None,newcameramtx,(w,h),5)
+        dst = cv2.remap(frame,mapx,mapy,cv2.INTER_LINEAR)
+
+        # crop the image
+        x,y,w,h = roi
+        dst = dst[y:y+h, x:x+w]
+        return dst
+
+def process_frame(frame, SIDE_LENGTH, F_LENGTH):
+    all_corners_3d = []
+    ids = []
+    if frame is not None:
+            
+            height, width = frame.shape[:2]
             # getting the 2d points on the frame
             processed_frame = copy.deepcopy(frame)
             processed_frame = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2GRAY)
@@ -178,31 +195,61 @@ def main():
             proj_squares, ids, rejected_img_points = detector.detectMarkers(processed_frame)
             
             for corners in proj_squares:
-                
-                corners_3d = find_rect_corners_xyz(corners[0], SIDE_LENGTH, SIDE_LENGTH, F_LENGTH, cam.get_width(), cam.get_height())
-                
-                
-                center_3d = 0.5*(corners_3d[0] + corners_3d[2])
-                # print(math.acos(np.dot(norm(corners_3d[0] - center_3d), norm(corners_3d[1] - center_3d))) * 180/math.pi) #  this was to check if the angles really are 90 degrees as they should be
-                proj_center =  project_point(center_3d[0], center_3d[1], center_3d[2], cam.get_width(), cam.get_height(), F_LENGTH)
-                proj_cros_axis_point = get_cross_axis_no_flip(corners_3d[0], corners_3d[1], center_3d, SIDE_LENGTH)
-                proj_cros_axis_point = project_point(proj_cros_axis_point[0], proj_cros_axis_point[1], proj_cros_axis_point[2], cam.get_width(), cam.get_height(), F_LENGTH)
-                
-                cv2.circle(frame, (int(proj_center[0]), int(proj_center[1])), 5, (255,0,0), 10)
-                print(magnitude(center_3d))
-                # print(distance(corners_3d[0], corners_3d[1]) )
-                # print(max(max(max(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]) - min(min(min(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]))
-                for i in range(len(corners_3d)):
-                    corner = corners_3d[i]
-                    proj_corner = project_point(corner[0], corner[1], corner[2], cam.get_width(), cam.get_height(), F_LENGTH)
-                    # print(magnitude(np.array(proj_corner) - np.array(corners[0][i])))
-                    
-                    cv2.circle(frame, (int(proj_corner[0]), int(proj_corner[1])), int(0.01/corner[2]), (255,0,0), 10)
-                    cv2.putText(frame, str((int(corner[2] * 1000))/1000), (int(proj_corner[0]) + 10, int(proj_corner[1]) + 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,255,0), 2)
-                cv2.line(frame,(int(proj_center[0]), int(proj_center[1])), 
-                         (int(proj_cros_axis_point[0]), int(proj_cros_axis_point[1])), (0,0,255), 5)
-            win.show_frame(frame)
+                corners_3d = find_rect_corners_xyz(corners[0], SIDE_LENGTH, SIDE_LENGTH, F_LENGTH, width, height)
+                all_corners_3d.append(corners_3d)
+            
+    return all_corners_3d, ids
+
+
+def draw_tags(frame, all_corners_3d, F_LENGTH):
+    if (frame is not None):
+        for corners_3d in all_corners_3d:
+            height, width = frame.shape[:2]
+            # print(magnitude(center_3d))
+            # print(max(max(max(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]) - min(min(min(corners_3d[0][2], corners_3d[1][2]), corners_3d[2][2]), corners_3d[3][2]))
+            center_3d = (corners_3d[0] + corners_3d[2])/2
+            proj_center =  project_point(center_3d[0], center_3d[1], center_3d[2], width, height, F_LENGTH)
+            for i in range(len(corners_3d)):
+                corner = corners_3d[i]
+                next_corner = corners_3d[(i+1)%len(corners_3d)]
+                proj_corner = project_point(corner[0], corner[1], corner[2], width, height, F_LENGTH)
+                next_proj_corner = project_point(next_corner[0], next_corner[1], next_corner[2], width, height, F_LENGTH)
+                # print(magnitude(np.array(proj_corner) - np.array(corners[0][i])))
+                cv2.line(frame, (int(proj_corner[0]), int(proj_corner[1])), 
+                        (int(next_proj_corner[0]), int(next_proj_corner[1])), (0,0,255), 1)
+                cv2.circle(frame, (int(proj_corner[0]), int(proj_corner[1])), int(0.01/corner[2]), (255,0,0), 10)
+                cv2.putText(frame, str((int(corner[2] * 1000))/1000), (int(proj_corner[0]) + 10, int(proj_corner[1]) + 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0,255,0), 2)
+            center_3d = 0.5*(corners_3d[0] + corners_3d[2])
+            # print(math.acos(np.dot(norm(corners_3d[0] - center_3d), norm(corners_3d[1] - center_3d))) * 180/math.pi) #  this was to check if the angles really are 90 degrees as they should be
+            # proj_center =  project_point(center_3d[0], center_3d[1], center_3d[2], width, height, F_LENGTH)
+            proj_cros_axis_point = get_cross_axis_no_flip(corners_3d[0], corners_3d[1], center_3d, 10)
+            proj_cros_axis_point = project_point(proj_cros_axis_point[0], proj_cros_axis_point[1], proj_cros_axis_point[2], width, height, F_LENGTH)
+            cv2.line(frame,(int(proj_center[0]), int(proj_center[1])), 
+                    (int(proj_cros_axis_point[0]), int(proj_cros_axis_point[1])), (0,0,255), 5)
+    return frame
+
+
+def main():
+    # np.set_printoptions(7)
+    cam = gbv.USBCamera(settings.CAMERA_PORT, gbv.LIFECAM_3000)
+    cam.set_exposure(settings.EXPOSURE)
+    F_LENGTH = (math.tan(0.4435563306578366)*2*math.tan(0.3337068395920225)*2)**0.5 
+    SIDE_LENGTH = 15.3
+    # this part for trying undistortion
+    matrix = np.array([[661.92113903,   0.        , 307.48134487],
+        [  0.        , 662.86886862, 231.33037259],
+        [  0.        ,   0.        ,   1.        ]])
+    distortion = np.array([[ 1.63258818e-01, -1.29538370e+00, -2.96528789e-03,
+         1.11106656e-03,  2.31431665e+00]])
+    
+    win = gbv.FeedWindow("window")
+    while True:
+        ok, frame = cam.read()
+        frame = undistort_frame(frame, matrix, distortion)
+        all_c_3d, ids = process_frame(frame, SIDE_LENGTH, F_LENGTH)
+        frame = draw_tags(frame, all_c_3d, F_LENGTH)
+        win.show_frame(frame)
         
         
         
